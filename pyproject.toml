@@ -1,0 +1,19 @@
+[project]
+name = "them-tube-graphql"
+version = "0.1.0"
+description = "Them-Tube service API"
+readme = "../README.md"
+authors = [
+  {name = "Ato Toffah", email = "atotoffah@gmail.com"},
+]
+requires-python = ">=3.11"
+dependencies = [
+    "bcrypt>=4.2.0",
+    "fastapi>=0.115.0",
+    "passlib>=1.7.4",
+    "pydantic-settings>=2.5.2",
+    "pymongo>=4.10.1",
+    "python-jose>=3.3.0",
+    "python-multipart>=0.0.12",
+    "uvicorn>=0.31.0",
+]
