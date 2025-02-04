@@ -13,6 +13,8 @@ RUN sh /uv-installer.sh && rm /uv-installer.sh
 ENV PATH="/root/.cargo/bin/:$PATH"
 ENV PATH="/app/.venv/bin:$PATH"
 
+RUN apt-get install -y ffmpeg
+
 WORKDIR /app
 
 ADD ./app/pyproject.toml ./app/uv.lock ./

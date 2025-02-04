@@ -6,8 +6,6 @@ services:
       - '27017:27017'
     volumes:
       - dbdata:/data/db
-    env_file:
-      - .env
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
@@ -19,14 +17,12 @@ services:
       - mongo
     ports:
       - 8081:8081
-    env_file:
-      - .env
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USER}
       ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASSWORD}
       ME_CONFIG_MONGODB_URL: ${MONGO_URI}
 
-  book-rev-api:
+  them-tube-api:
     build:
       dockerfile: ./Dockerfile
     # restart: always
@@ -36,15 +32,17 @@ services:
       - 8000:8000
     volumes:
       - ./app/:/app:rw
-    env_file:
-      - .env
     environment:
       MONGO_URI: ${MONGO_URI}
       SECRET_KEY: ${SECRET_KEY}
       ALGORITHM: ${ALGORITHM}
       ACCESS_TOKEN_EXPIRE_DAYS: ${ACCESS_TOKEN_EXPIRE_DAYS}
+      DATABSE_NAME: ${DATABSE_NAME}
+      DATABSE_SERVICE: ${DATABSE_SERVICE}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      
 
 volumes:
   dbdata:
-    name: book-rev-mongo-db
+    name: them-tube-mongo-db
  

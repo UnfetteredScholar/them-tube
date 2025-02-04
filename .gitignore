@@ -3,3 +3,5 @@ __pycache__
 logs
 .env
 env
+test_video
+videos

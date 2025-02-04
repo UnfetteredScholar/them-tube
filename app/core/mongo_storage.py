@@ -1,3 +1,5 @@
+import os
+import shutil
 from datetime import UTC, datetime
 from typing import Dict, List, Optional
 
@@ -10,15 +12,20 @@ from fastapi.exceptions import HTTPException
 from pymongo import ASCENDING
 from pymongo.mongo_client import MongoClient
 from schemas import user as s_user
+from schemas import video as s_video
 
 
 class MongoStorage:
     """Storage class for interfacing with mongo db"""
 
-    def __init__(self, db_name: str = settings.DATABSE_NAME):
+    def __init__(
+        self,
+        connection_url: str = settings.MONGO_URI,
+        db_name: str = settings.DATABSE_NAME,
+    ):
         """Initializes a MongoStorage object"""
 
-        self.client = MongoClient(settings.MONGO_URI)
+        self.client = MongoClient(connection_url)
         self.db = self.client[db_name]
         self.fs = gridfs.GridFS(self.db)
 
@@ -123,296 +130,97 @@ class MongoStorage:
 
         self.db["users"].delete_one(filter)
 
-    # # authors
-    # def author_create_record(
-    #     self,
-    #     author_data: s_author.AuthorIn,
-    # ) -> str:
-    #     """Creates an author record"""
+    # videos
+    def video_create_record(
+        self,
+        title: str,
+        user_id: str,
+        duration_in_sec: float,
+        description: Optional[str] = None,
+        tags: List[str] = [],
+        available: bool = False,
+    ) -> str:
+        """Creates a video record"""
 
-    #     authors_table = self.db["authors"]
+        videos_table = self.db["videos"]
 
-    #     date = datetime.now(UTC)
-    #     author = s_author.Author(
-    #         name=author_data.name,
-    #         bio=author_data.bio,
-    #         date_of_birth=author_data.date_of_birth,
-    #         gender=author_data.gender,
-    #         date_created=date,
-    #         date_modified=date,
-    #     )
-
-    #     id = str(
-    #         authors_table.insert_one(author.model_dump(exclude_unset=True)).inserted_id
-    #     )
-
-    #     return id
-
-    # def author_get_record(self, filter: Dict) -> Optional[s_author.Author]:
-    #     """Gets a author record from the db using the supplied filter"""
-    #     authors = self.db["authors"]
-
-    #     if "_id" in filter and type(filter["_id"]) is str:
-    #         filter["_id"] = ObjectId(filter["_id"])
-
-    #     author = authors.find_one(filter)
-
-    #     if author:
-    #         author = s_author.Author(**author)
+        date = datetime.now(UTC)
+        video = {
+            "title": title,
+            "user_id": user_id,
+            "description": description,
+            "tags": tags,
+            "available": available,
+            "duration_in_sec": duration_in_sec,
+        }
 
-    #     return author
-
-    # def author_get_all_records(
-    #     self, filter: Dict, limit: int = 0
-    # ) -> List[s_author.Author]:
-    #     """Gets all author records from the db using the supplied filter"""
-    #     authors = self.db["authors"]
+        video["date_created"] = date
+        video["date_modified"] = date
 
-    #     if "_id" in filter and type(filter["_id"]) is str:
-    #         filter["_id"] = ObjectId(filter["_id"])
+        id = str(videos_table.insert_one(video).inserted_id)
 
-    #     authors_list = authors.find(filter).sort({"_id": ASCENDING}).limit(limit)
+        return id
 
-    #     authors_list = [s_author.Author(**author) for author in authors_list]
+    def video_get_record(self, filter: Dict) -> Optional[s_video.Video]:
+        """Gets a video record from the db using the supplied filter"""
+        videos = self.db["videos"]
 
-    #     return authors_list
+        if "_id" in filter and type(filter["_id"]) is str:
+            filter["_id"] = ObjectId(filter["_id"])
 
-    # def author_get_records_page(self, filter: Dict) -> Page[s_author.Author]:
-    #     """Gets a page of author records from the db using the supplied filter"""
-    #     authors = self.db["authors"]
+        video = videos.find_one(filter)
 
-    #     if "_id" in filter and type(filter["_id"]) is str:
-    #         filter["_id"] = ObjectId(filter["_id"])
+        if video:
+            video = s_video.Video(**video)
 
-    #     result = paginate(collection=authors, query_filter=filter)
+        return video
 
-    #     return result
+    def video_get_all_records(
+        self, filter: Dict, limit: int = 0
+    ) -> List[s_video.Video]:
+        """Gets all video records from the db using the supplied filter"""
+        videos = self.db["videos"]
 
-    # def author_verify_record(self, filter: Dict) -> s_author.Author:
-    #     """
-    #     Gets a author record using the filter
-    #     and raises an error if a matching record is not found
-    #     """
+        if "_id" in filter and type(filter["_id"]) is str:
+            filter["_id"] = ObjectId(filter["_id"])
 
-    #     author = self.author_get_record(filter)
+        videos_list = videos.find(filter).limit(limit)
 
-    #     if author is None:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_404_NOT_FOUND, detail="Author not found"
-    #         )
+        videos_list = [s_video.Video(**video) for video in videos_list]
 
-    #     return author
+        return videos_list
 
-    # def author_update_record(self, filter: Dict, update: Dict):
-    #     """Updates a author record"""
-    #     self.author_verify_record(filter)
+    def video_verify_record(self, filter: Dict) -> s_video.Video:
+        """
+        Gets a video record using the filter
+        and raises an error if a matching record is not found
+        """
 
-    #     for key in ["_id"]:
-    #         if key in update:
-    #             raise KeyError(f"Invalid Key. KEY {key} cannot be changed")
-    #     update["date_modified"] = datetime.now(UTC)
+        video = self.video_get_record(filter)
 
-    #     return self.db["authors"].update_one(filter, {"$set": update})
+        if video is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Video not found"
+            )
 
-    # def author_delete_record(self, filter: Dict):
-    #     """Deletes a author record"""
-    #     self.author_verify_record(filter)
+        return video
 
-    #     self.db["authors"].delete_one(filter)
+    def video_update_record(self, filter: Dict, update: Dict):
+        """Updates a video record"""
+        self.video_verify_record(filter)
 
-    # # books
-    # def book_create_record(
-    #     self,
-    #     book_data: s_book.BookIn,
-    # ) -> str:
-    #     """Creates an book record"""
-    #     books_table = self.db["books"]
-    #     date = datetime.now(UTC)
-    #     book = s_book.Book(
-    #         isbn_10=book_data.isbn_10,
-    #         isbn_13=book_data.isbn_13,
-    #         author_ids=book_data.author_ids,
-    #         title=book_data.title,
-    #         genres=book_data.genres,
-    #         series=book_data.series,
-    #         series_number=book_data.series_number,
-    #         pages=book_data.pages,
-    #         blurb=book_data.blurb,
-    #         date_created=date,
-    #         date_modified=date,
-    #         release_date=book_data.release_date,
-    #     )
-    #     print("Saving book")
-
-    #     id = str(
-    #         books_table.insert_one(book.model_dump(exclude_unset=True)).inserted_id
-    #     )
-
-    #     return id
-
-    # def book_get_record(self, filter: Dict) -> Optional[s_book.Book]:
-    #     """Gets a book record from the db using the supplied filter"""
-    #     books = self.db["books"]
-
-    #     if "_id" in filter and type(filter["_id"]) is str:
-    #         filter["_id"] = ObjectId(filter["_id"])
-
-    #     book = books.find_one(filter)
-
-    #     if book:
-    #         book = s_book.Book(**book)
-
-    #     return book
-
-    # def book_get_all_records(self, filter: Dict, limit: int = 0) -> List[s_book.Book]:
-    #     """Gets all book records from the db using the supplied filter"""
-    #     books = self.db["books"]
-
-    #     if "_id" in filter and type(filter["_id"]) is str:
-    #         filter["_id"] = ObjectId(filter["_id"])
-
-    #     books_list = books.find(filter).sort({"_id": ASCENDING}).limit(limit)
-
-    #     books_list = [s_book.Book(**book) for book in books_list]
+        for key in ["_id", "user_id"]:
+            if key in update:
+                raise KeyError(f"Invalid Key. KEY {key} cannot be changed")
+        update["date_modified"] = datetime.now(UTC)
 
-    #     return books_list
-
-    # def book_get_records_page(self, filter: Dict) -> Page[s_book.Book]:
-    #     """Gets a page of book records from the db using the supplied filter"""
-    #     books = self.db["books"]
-
-    #     if "_id" in filter and type(filter["_id"]) is str:
-    #         filter["_id"] = ObjectId(filter["_id"])
+        return self.db["videos"].update_one(filter, {"$set": update})
 
-    #     result = paginate(collection=books, query_filter=filter)
+    def video_delete_record(self, filter: Dict):
+        """Deletes a video record"""
+        video = self.video_verify_record(filter)
 
-    #     return result
-
-    # def book_verify_record(self, filter: Dict) -> s_book.Book:
-    #     """
-    #     Gets a book record using the filter
-    #     and raises an error if a matching record is not found
-    #     """
-
-    #     book = self.book_get_record(filter)
-
-    #     if book is None:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_404_NOT_FOUND, detail="Book not found"
-    #         )
-
-    #     return book
-
-    # def book_update_record(self, filter: Dict, update: Dict):
-    #     """Updates a book record"""
-    #     self.book_verify_record(filter)
-
-    #     for key in ["_id"]:
-    #         if key in update:
-    #             raise KeyError(f"Invalid Key. KEY {key} cannot be changed")
-    #     update["date_modified"] = datetime.now(UTC)
-
-    #     return self.db["books"].update_one(filter, {"$set": update})
-
-    # def book_delete_record(self, filter: Dict):
-    #     """Deletes a book record"""
-    #     self.book_verify_record(filter)
-
-    #     self.db["books"].delete_one(filter)
-
-    # # reviews
-    # def review_create_record(
-    #     self,
-    #     review_data: s_review.ReviewIn,
-    #     user_id: str,
-    #     book_id: str,
-    # ) -> str:
-    #     """Creates an review record"""
-    #     reviews_table = self.db["reviews"]
-    #     date = datetime.now(UTC)
-    #     review = s_review.Review(
-    #         user_id=user_id,
-    #         book_id=book_id,
-    #         rating=review_data.rating,
-    #         title=review_data.title,
-    #         content=review_data.content,
-    #         date_created=date,
-    #         date_modified=date,
-    #     )
-    #     id = str(
-    #         reviews_table.insert_one(review.model_dump(exclude_unset=True)).inserted_id
-    #     )
-
-    #     return id
-
-    # def review_get_record(self, filter: Dict) -> Optional[s_review.Review]:
-    #     """Gets a review record from the db using the supplied filter"""
-    #     reviews = self.db["reviews"]
-
-    #     if "_id" in filter and type(filter["_id"]) is str:
-    #         filter["_id"] = ObjectId(filter["_id"])
-
-    #     review = reviews.find_one(filter)
-
-    #     if review:
-    #         review = s_review.Review(**review)
-
-    #     return review
-
-    # def review_get_all_records(
-    #     self, filter: Dict, limit: int = 0
-    # ) -> List[s_review.Review]:
-    #     """Gets all review records from the db using the supplied filter"""
-    #     reviews = self.db["reviews"]
-
-    #     if "_id" in filter and type(filter["_id"]) is str:
-    #         filter["_id"] = ObjectId(filter["_id"])
-
-    #     reviews_list = reviews.find(filter).sort({"_id": ASCENDING}).limit(limit)
-
-    #     reviews_list = [s_review.Review(**review) for review in reviews_list]
-
-    #     return reviews_list
-
-    # def review_get_records_page(self, filter: Dict) -> Page[s_review.Review]:
-    #     """Gets a page of review records from the db using the supplied filter"""
-    #     reviews = self.db["reviews"]
-
-    #     if "_id" in filter and type(filter["_id"]) is str:
-    #         filter["_id"] = ObjectId(filter["_id"])
-
-    #     result = paginate(collection=reviews, query_filter=filter)
-
-    #     return result
-
-    # def review_verify_record(self, filter: Dict) -> s_review.Review:
-    #     """
-    #     Gets a review record using the filter
-    #     and raises an error if a matching record is not found
-    #     """
-
-    #     review = self.review_get_record(filter)
-
-    #     if review is None:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_404_NOT_FOUND, detail="Review not found"
-    #         )
-
-    #     return review
-
-    # def review_update_record(self, filter: Dict, update: Dict):
-    #     """Updates a review record"""
-    #     self.review_verify_record(filter)
-
-    #     for key in ["_id", "user_id", "book_id"]:
-    #         if key in update:
-    #             raise KeyError(f"Invalid Key. KEY {key} cannot be changed")
-    #     update["date_modified"] = datetime.now(UTC)
-
-    #     return self.db["reviews"].update_one(filter=filter, update={"$set": update})
-
-    # def review_delete_record(self, filter: Dict):
-    #     """Deletes a review record"""
-    #     self.review_verify_record(filter)
-
-    #     self.db["reviews"].delete_one(filter)
+        self.db["videos"].delete_one(filter)
+        path = f"./{settings.VIDEO_DIRECTORY}/{video.id}"
+        if os.path.exists(path):
+            shutil.rmtree(path, ignore_errors=True)

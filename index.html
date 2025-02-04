@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Stream Player</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #222;
+            color: white;
+        }
+        video {
+            width: 80%;
+            max-width: 800px;
+            margin-top: 20px;
+        }
+        select {
+            margin-top: 10px;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>HLS Stream Player</h2>
+    <video id="video" controls></video>
+    <br>
+    <label for="quality">Select Quality:</label>
+    <select id="quality"></select>
+
+    <script>
+        const video = document.getElementById('video');
+        const qualitySelector = document.getElementById('quality');
+        const hlsSource = 'http://localhost:8000/stream/67a1fe27ef93a0385ff36090/master.m3u8'; // Update this with your HLS master playlist URL
+
+        if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(hlsSource);
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                const levels = hls.levels;
+
+                levels.forEach((level, index) => {
+                    let option = document.createElement('option');
+                    option.value = index;
+                    option.text = `${level.height}p (${(level.bitrate / 1000).toFixed(0)} kbps)`;
+                    qualitySelector.appendChild(option);
+                });
+
+                // Auto quality option
+                let autoOption = document.createElement('option');
+                autoOption.value = 'auto';
+                autoOption.text = 'Auto';
+                qualitySelector.insertBefore(autoOption, qualitySelector.firstChild);
+                qualitySelector.value = 'auto';
+
+                qualitySelector.addEventListener('change', function() {
+                    if (this.value === 'auto') {
+                        hls.currentLevel = -1; // Auto quality
+                    } else {
+                        hls.currentLevel = parseInt(this.value);
+                    }
+                });
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = hlsSource;
+        }
+    </script>
+
+</body>
+</html>
